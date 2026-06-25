@@ -16,12 +16,13 @@ var app = builder.Build();
 // var shifts = new List<Shift>();
 
 // GET endpoint on parent directory should return list of Shifts 
-app.MapGet("/shifts/", () => shifts);
+app.MapGet("/shifts/", async (Shiftdb db) => 
+    await db.Shifts.ToListAsync());
 
 // GET endpoint gets specific shift object 
-app.MapGet("/shifts/{id}", Results<Ok<Shift>, NotFound> (int id) =>
+app.MapGet("/shifts/{id}", async Task<Results<Ok<Shift>, NotFound>> (int id, Shiftdb db) =>
 {
-    var targetShift = shifts.SingleOrDefault(t => id == t.id);
+    var targetShift = await db.Shifts.FindAsync(id);
 
     // tutorial code with newer syntax 
     /*
@@ -40,20 +41,31 @@ app.MapGet("/shifts/{id}", Results<Ok<Shift>, NotFound> (int id) =>
 
 
 // POST endpoint should add a shift
-app.MapPost("/shifts", (Shift shift) =>
+app.MapPost("/shifts", async (Shift shift, Shiftdb db) =>
 {
-    shifts.Add(shift);
+    db.Shifts.Add(shift);
+    await db.SaveChangesAsync();
 
     // might need to add $ here 
-    return TypedResults.Created("/shifts/{id}", shift);
+    return TypedResults.Created("/shifts/{shift.id}", shift);
 });
 
 
 // Delete Endpoint 
-app.MapPost("/shifts/{id}", (int id) =>
+app.MapDelete("/shifts/{id}", async Results<NoContent, NotFound> (int id, Shiftdb db) =>
 {
-    shifts.RemoveAll(t => id == t.id);
-    return TypedResults.NoContent();
+    var targetShift = await db.Shifts.FindAsync(id);
+
+    if (targetShift == null)
+    {
+        return TypedResults.NotFound();
+    } else
+    {
+        db.Shifts.Remove(targetShift);
+        await db.SaveChangesAsync();
+        return TypedResults.NoContent();
+    }
 });
+
 
 app.Run();
